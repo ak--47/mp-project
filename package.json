@@ -1,0 +1,20 @@
+{
+  "name": "mp-project",
+  "version": "1.0.1",
+  "description": "automate stuff in mixpanel",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "prune": "rm -rf ./tmp/*",
+    "post": "npm publish"
+  },
+  "author": "AK",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.4"
+  },
+  "dependencies": {
+    "ak-fetch": "^1.0.4"
+  }
+}
