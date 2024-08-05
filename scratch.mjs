@@ -11,14 +11,14 @@ const {
 	id,
 } = process.env;
 
-const myProject = new Project({
+const myp = new Project({
 	service_acct,
 	service_secret,
 	id,
 });
 
-await myProject.auth();
+const auth = await myp.auth();
 
-await myProject.getSchema();
+const everything = await myp.getAll();
 
 debugger;

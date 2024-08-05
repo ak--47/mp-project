@@ -149,6 +149,18 @@ module.exports.listCohorts = function (projectId, workspaceId, reg = `US`) {
 	return `https://${gr(reg)}mixpanel.com/api/2.0/cohorts/list?project_id=${projectId}&workspace_id=${workspaceId}`;
 };
 
+module.exports.makeFormula = function(projectId, reg = `US`) {
+	return `https://${gr(reg)}mixpanel.com/api/app/projects/${projectId}/metrics`
+}
+
+module.exports.getFormulas = function(projectId, reg = `US`) {
+	return `https://${gr(reg)}mixpanel.com/api/app/projects/${projectId}/metrics`
+}
+
+module.exports.getUsers  = function(projectId, reg = `US`) {
+	return `https://${gr(reg)}mixpanel.com/api/app/projects/${projectId}/granted-users?include_invited_users=true&include_access_requests=true`
+}
+
 
 
 function gr(reg = 'US') {
