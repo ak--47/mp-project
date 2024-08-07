@@ -1,6 +1,20 @@
 /**
  * @fileoverview what we have here is essentially a programmatic interface to a mixpanel project... 
  * allowing you to carry out various operations on the data or schema in any mixpanel project... from code!
+ * 
+ * @example copy a project schema from one project to another
+ * const MixpanelProject = require('ak-mixpanel-project');
+ * const projectFoo = new MixpanelProject({id: "1234", access_token: "abc123"});
+ * const projectBar = new MixpanelProject({id: "5678", service_acct: "foo", service
+ * await projectFoo.auth();
+ * await projectBar.auth();
+ * const schemaFoo = await projectFoo.getSchema();
+ * const schemaBar = await projectBar.setSchema(schemaFoo);
+ * const customEventsFoo = await projectFoo.getCustomEvents();
+ * const customEventsBar = await projectBar.setCustomEvents(customEventsFoo);
+ * 
+ * 
+ * 
  */
 
 const path = require('path');
@@ -91,7 +105,183 @@ class MixpanelProject {
 	}
 
 	async auth() {
-		if (this._authenticated && Object.keys(this._metadata).length) return this._metadata;
+		await authUser.call(this);
+	}
+
+	async getAll() {
+		if (!this._authenticated) await this.auth();
+		this.clear();
+		const schema = await this.getSchema();
+		const dashboards = await this.getDash();
+		const cohort = await this.getCohorts();
+		const customEvents = await this.getCustomEvents();
+		const customProps = await this.getCustomProps();
+		const formulas = await this.getFormulas();
+		const users = await this.getUsers();
+		return { schema, dashboards, cohort, customEvents, customProps, formulas, users };
+	}
+
+
+	async getSchema() {
+		if (!this._authenticated) await this.auth();
+		if (Object.keys(this._assets.schema).length) return this._assets.schema;
+		const schema = await getSchemaUnofficial({
+			headers: this.headers(),
+			project: this._id,
+			workspace: this._workspace_id
+
+		});
+
+		this._assets.schema = schema;
+		return schema;
+	}
+
+	async setSchema(schema) {
+		//todo
+	}
+
+
+	async getDash(dashId) {
+		if (!this._authenticated) await this.auth();
+		if (dashId) return await fetch({ url: urls.getSingleDash(this._workspace_id, dashId, this._region), headers: this.headers() });
+		if (this._assets.dashboards.length) return this._assets.dashboards;
+		const { results: dashboards } = await fetch({
+			method: 'GET',
+			url: urls.getAllDash(this._workspace_id, this._region),
+			headers: this.headers()
+		});
+		const dashIds = dashboards.map(d => d.id);
+		const allDashboards = (await batchDashboards(dashIds, this._workspace_id, this._region, this.headers()))
+			.map(d => d.results);
+		for (const dash of allDashboards) {
+			this._assets.dashboards.push(dash);
+			const { contents = {} } = dash;
+			const { report: reports = {} } = contents;
+			this._assets.reports.push(...Object.values(reports));
+		}
+		return allDashboards;
+	}
+
+	async setDash(dash) {
+		//todo
+	}
+
+	async getCohorts() {
+		if (!this._authenticated) await this.auth();
+		if (this._assets.cohorts.length) return this._assets.cohorts;
+		const { results: cohorts = [] } = await fetch({
+			method: 'GET',
+			url: urls.getCohorts(this._workspace_id, this._region),
+			headers: this.headers()
+		});
+		this._assets.cohorts = cohorts;
+		return cohorts;
+
+	}
+
+	async setCohorts(cohorts) {
+		if (!Array.isArray(cohorts)) cohorts = [cohorts];
+	}
+
+	async getCustomEvents() {
+		if (!this._authenticated) await this.auth();
+		if (this._assets.custom_events.length) return this._assets.custom_events;
+		const { custom_events = [] } = await fetch({
+			method: 'GET',
+			url: urls.getCustomEvents(this._workspace_id, this._region),
+			headers: this.headers()
+		});
+		this._assets.custom_events = custom_events;
+		return custom_events;
+	}
+
+	async setCustomEvents(customEvents) {
+		if (!Array.isArray(customEvents)) customEvents = [customEvents];
+	}
+
+	async getCustomProps() {
+		if (!this._authenticated) await this.auth();
+		if (this._assets.custom_props.length) return this._assets.custom_props;
+		const { results: custom_props = [] } = await fetch({
+			method: 'GET',
+			url: urls.getCustomProps(this._workspace_id, this._region),
+			headers: this.headers()
+		});
+		this._assets.custom_props = custom_props;
+		return custom_props;
+	}
+
+	async setCustomProps(customProps) {
+		if (!Array.isArray(customProps)) customProps = [customProps];
+	}
+
+	async getFormulas() {
+		if (!this._authenticated) await this.auth();
+		if (this._assets.formulas.length) return this._assets.formulas;
+		const { results: formulas = [] } = await fetch({
+			method: 'GET',
+			url: urls.getFormulas(this._id, this._region),
+			headers: this.headers()
+		});
+		this._assets.formulas = formulas;
+		return formulas;
+	}
+
+	async setFormulas(formulas) {
+		if (!Array.isArray(formulas)) formulas = [formulas];
+	}
+
+	async getUsers() {
+		if (!this._authenticated) await this.auth();
+		const { results: users = [] } = await fetch({
+			method: 'GET',
+			url: urls.getUsers(this._id, this._region),
+			headers: this.headers()
+		});
+		this._assets.users = users;
+		return users;
+
+	}
+
+	async addUsers(users) {
+		if (!Array.isArray(users)) users = [users];
+	}
+
+	async removeUsers(users) {
+		if (!Array.isArray(users)) users = [users];
+	}
+
+
+	clear() {
+		this._assets = {
+			schema: {},
+			dashboards: [],
+			reports: [],
+			cohorts: [],
+			custom_events: [],
+			custom_props: [],
+			formulas: [],
+			users: []
+		};
+	}
+
+
+
+	static async makeProject(opts = {}) {
+		if (!this._access_token) throw new Error('Missing access_token');
+		if (!this._org_id) throw new Error('Missing org_id');
+		if (!this._authenticated) await this.auth();
+		const { groupKeys = {} } = opts;
+
+	}
+
+}
+
+
+
+
+async function authUser() {
+	if (this._authenticated && Object.keys(this._metadata).length) return this._metadata;
 		if (!this._access_token && (!this._service_acct && !this._service_secret)) {
 			throw new Error("Missing required authentication parameters; access_token or service_acct and service_secret");
 		}
@@ -150,144 +340,7 @@ class MixpanelProject {
 		this._authenticated = true;
 		return this._metadata;
 
-	}
-
-	async getAll() {
-		if (!this._authenticated) await this.auth();
-		this.clear();
-		const schema = await this.getSchema();
-		const dashboards = await this.getDash();
-		const cohort = await this.getCohorts();
-		const customEvents = await this.getCustomEvents();
-		const customProps = await this.getCustomProps();
-		const formulas = await this.getFormulas();
-		const users = await this.getUsers();
-		return { schema, dashboards, cohort, customEvents, customProps, formulas, users };
-	}
-
-
-	async getSchema() {
-		if (!this._authenticated) await this.auth();
-		if (Object.keys(this._assets.schema).length) return this._assets.schema;
-		const schema = await getSchemaUnofficial({
-			headers: this.headers(),
-			project: this._id,
-			workspace: this._workspace_id
-
-		});
-
-		this._assets.schema = schema;
-		return schema;
-	}
-
-	async getDash(dashId) {
-		if (!this._authenticated) await this.auth();
-		if (dashId) return await fetch({ url: urls.getSingleDash(this._workspace_id, dashId, this._region), headers: this.headers() });
-		if (this._assets.dashboards.length) return this._assets.dashboards;
-		const { results: dashboards } = await fetch({
-			method: 'GET',
-			url: urls.getAllDash(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		const dashIds = dashboards.map(d => d.id);
-		const allDashboards = (await batchDashboards(dashIds, this._workspace_id, this._region, this.headers()))
-			.map(d => d.results);
-		for (const dash of allDashboards) {
-			this._assets.dashboards.push(dash);
-			const { contents = {} } = dash;
-			const { report: reports = {} } = contents;
-			this._assets.reports.push(...Object.values(reports));
-		}
-		return allDashboards;
-	}
-
-	async getCohorts() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.cohorts.length) return this._assets.cohorts;
-		const { results: cohorts = [] } = await fetch({
-			method: 'GET',
-			url: urls.getCohorts(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		this._assets.cohorts = cohorts;
-		return cohorts;
-
-	}
-
-	async getCustomEvents() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.custom_events.length) return this._assets.custom_events;
-		const { custom_events = [] } = await fetch({
-			method: 'GET',
-			url: urls.getCustomEvents(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		this._assets.custom_events = custom_events;
-		return custom_events;
-	}
-
-	async getCustomProps() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.custom_props.length) return this._assets.custom_props;
-		const { results: custom_props = [] } = await fetch({
-			method: 'GET',
-			url: urls.getCustomProps(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		this._assets.custom_props = custom_props;
-		return custom_props;
-	}
-
-	async getFormulas() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.formulas.length) return this._assets.formulas;
-		const { results: formulas = [] } = await fetch({
-			method: 'GET',
-			url: urls.getFormulas(this._id, this._region),
-			headers: this.headers()
-		});
-		this._assets.formulas = formulas;
-		return formulas;
-	}
-
-	async getUsers() {
-		if (!this._authenticated) await this.auth();
-		const { results: users = [] } = await fetch({
-			method: 'GET',
-			url: urls.getUsers(this._id, this._region),
-			headers: this.headers()
-		});
-		this._assets.users = users;
-		return users;
-
-	}
-
-	clear() {
-		this._assets = {
-			schema: {},
-			dashboards: [],
-			reports: [],
-			cohorts: [],
-			custom_events: [],
-			custom_props: [],
-			formulas: [],
-			users: []
-		};
-	}
-
-
-
-	static async makeProject(opts = {}) {
-		if (!this._access_token) throw new Error('Missing access_token');
-		if (!this._org_id) throw new Error('Missing org_id');
-		if (!this._authenticated) await this.auth();
-		const { groupKeys = {} } = opts;
-
-	}
-
 }
-
-
 
 async function getSchemaUnofficial(creds) {
 	const { headers, project, workspace } = creds;
