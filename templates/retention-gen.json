@@ -1,0 +1,90 @@
+{
+	"sections": {
+		"cohorts": [],
+		"filter": [],
+		"formula": [],
+		"show": [
+			{
+				"isExpanded": true,
+				"behavior": {
+					"type": "retention",
+					"resourceType": "events",
+					"dataGroupId": null,
+					"dataset": "$mixpanel",
+					"name": null,
+					"filters": [],
+					"behaviors": [
+						{
+							"type": "event",
+							"name": "$mp_anything_event",
+							"filters": [],
+							"filtersDeterminer": "all"
+						},
+						{
+							"type": "event",
+							"name": "$mp_anything_event",
+							"filters": [],
+							"filtersDeterminer": "all"
+						}
+					],
+					"retentionType": "birth",
+					"retentionAlignmentType": "birth",
+					"retentionUnit": "day",
+					"retentionUnboundedMode": "none",
+					"retentionCustomBucketSizes": [],
+					"profileType": null,
+					"search": ""
+				},
+				"display": {},
+				"measurement": {
+					"math": "retention_rate",
+					"perUserAggregation": null,
+					"rolling": null,
+					"cumulative": false,
+					"retentionCumulative": false,
+					"property": null,
+					"retentionBucketIndex": 0,
+					"retentionSegmentationEvent": "$mp_anything_event",
+					"segmentMethod": null
+				}
+			}
+		],
+		"group": [
+			{
+				"dataset": "$mixpanel",
+				"value": "$browser",
+				"resourceType": "people",
+				"profileType": null,
+				"search": "",
+				"dataGroupId": null,
+				"propertyType": "string",
+				"typeCast": null,
+				"unit": null
+			}
+		],
+		"time": [
+			{
+				"dateRangeType": "in the last",
+				"window": {
+					"value": 30,
+					"unit": "day"
+				},
+				"unit": "day"
+			}
+		]
+	},
+	"legend": {
+		"overrides": {}
+	},
+	"columnWidths": {
+		"bar": {}
+	},
+	"displayOptions": {
+		"chartType": "retention-curve",
+		"plotStyle": "standard",
+		"analysis": "linear",
+		"value": "absolute",
+		"primaryYAxisOptions": {},
+		"statSigControl": []
+	}
+}

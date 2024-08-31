@@ -161,71 +161,11 @@ module.exports.getUsers  = function(projectId, reg = `US`) {
 	return `https://${gr(reg)}mixpanel.com/api/app/projects/${projectId}/granted-users?include_invited_users=true&include_access_requests=true`
 }
 
+module.exports.saveTheme = function(projectId, reg = `US`) {	
+	return `https://${gr(reg)}mixpanel.com/api/app/projects/${projectId}/themes`
+}
 
 
 function gr(reg = 'US') {
 	return `${reg?.toLowerCase() === 'eu' ? "eu." : ""}`;
 }
-
-// layout payload
-const layout = { "layout": { "rows": [{ "height": 0, "cells": [{ "id": "fEGqmELw", "width": 6 }, { "id": "dQ32tc8d", "width": 6 }], "id": "TUvsEPn4" }, { "height": 0, "cells": [], "id": "qATtSFxj" }], "rows_order": ["TUvsEPn4", "bTJDNg75", "qATtSFxj"] } };
-
-// blacklisted keys
-module.exports.blacklistKeys = [
-	"TEXT",
-	"MEDIA",
-	"LAYOUT",
-	"REPORTS",
-	"dashboard_id",
-	'last_modified_by_name',
-	'last_modified_by_id',
-	'last_modified_by_email',
-	"id",
-	"is_private",
-	"creator",
-	"creator_id",
-	"creator_name",
-	"creator_email",
-	"is_restricted",
-	"modified",
-	"is_favorited",
-	"pinned_date",
-	"generation_type",
-	"layout_version",
-	"can_see_grid_chameleon",
-	"can_update_basic",
-	"can_view",
-	"allow_staff_override",
-	"is_superadmin",
-	"can_share",
-	"can_pin_dashboards",
-	"can_update_restricted",
-	"can_update_visibility",
-	"created",
-	"project_id",
-	"workspace_id",
-	"original_type",
-	"include_in_dashboard",
-	"is_default",
-	"metadata",
-	"dashboard",
-	"is_visibility_restricted",
-	"is_modification_restricted",
-	"count",
-	"created_by",
-	"data_group_id",
-	"last_edited",
-	"last_queried",
-	"referenced_by",
-	"referenced_directly_by",
-	"active_integrations",
-	"user",
-	"customPropertyId",
-	"canUpdateBasic",
-	"referencedBy",
-	"referencedDirectlyBy",
-	"referencedRawEventProperties",
-	"project",
-	"is_shared_with_project",
-	"template_type"
-];

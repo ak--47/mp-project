@@ -1,0 +1,47 @@
+{
+    "displayOptions": {},
+    "anchorPosition": "step",
+    "anchor_position": 1,
+    "cardinality": 3,
+    "maxResults": 50,
+    "cardinality_threshold": 3,
+    "collapse_repeated": false,
+    "count_type": "unique",
+    "date_range": {
+        "type": "in the last",
+        "from_date": {
+            "unit": "day",
+            "value": 30
+        },
+        "to_date": "$now"
+    },
+    "exclusions": [],
+    "filter_by_cohort": "{}",
+    "flows_merge_type": "graph",
+    "show_custom_events": true,
+    "segments": [],
+    "steps": [
+        {
+            "step_label": "sign up",
+            "forward": 3,
+            "event": "sign up",
+            "property_filter_params_list": []
+        }
+    ],
+    "conversion_window": {
+        "unit": "day",
+        "value": 7
+    },
+    "version": "1",
+    "hidden_events": [],
+    "graph_sort_priority": "absolute",
+    "legend": {},
+    "alignment": [
+        1,
+        0
+    ],
+    "funnelParams": null,
+    "maxSteps": -1,
+    "chartType": "sankey",
+    "reverse": false
+}

@@ -21,7 +21,9 @@ const path = require('path');
 const os = require('os');
 let { NODE_ENV = "unknown" } = process.env;
 const fetch = require('ak-fetch');
-const urls = require('./urls');
+const urls = require('./tools/urls');
+const payloads = require('./tools/payloads');
+
 
 /** 
  * @typedef {Object} MpProjectOptions
@@ -140,6 +142,15 @@ class MixpanelProject {
 		//todo
 	}
 
+	async request(url, payload = null, method = "POST", additionalHeaders = {}, blacklist = true) {
+		if (!this._authenticated) await this.auth();
+		if (Object.keys(additionalHeaders).length) additionalHeaders = { "content-type": "application/json", "accept": "application/json" };
+		const headers = { ...this.headers(), ...additionalHeaders };
+		if (blacklist) for (const key of payloads.blacklistKeys) if (payload[key]) delete payload[key];
+		const response = await fetch({ method, url, headers, data: payload, noBatch: true });
+		return response;
+	}
+
 
 	async getDash(dashId) {
 		if (!this._authenticated) await this.auth();
@@ -162,9 +173,28 @@ class MixpanelProject {
 		return allDashboards;
 	}
 
-	async setDash(dash) {
-		//todo
+	async createDash(title, description = "") {
+		if (!this._authenticated) await this.auth();
+		if (!title) title = nameMaker(3, ' ');
+		const createUrl = urls.makeDash(this._workspace_id, this._region);
+		const createPayload = { title: "Untitled" };
+		const createResponse = await this.request(createUrl, createPayload);
+		const { id: dashId } = createResponse;
+		const editPayload = { title, description };
+		const editUrl = urls.makeReport(this._workspace_id, dashId, this._region);
+		const editResponse = await this.request(editUrl, editPayload, "PATCH");
+
+		const sharePayload = { "id": dashId, "projectShares": [{ "id": this._id, "canEdit": true }] };
+		const shareUrl = urls.shareDash(this._id, dashId, this._region);
+		const shareResponse = await this.request(shareUrl, sharePayload, "POST");
+
+		const pinDashUrl = urls.pinDash(this._workspace_id, dashId, this._region);
+		const pinDashResponse = await this.request(pinDashUrl, {}, "POST");
+
+		return { createResponse, editResponse, shareResponse, pinDashResponse };
 	}
+
+
 
 	async getCohorts() {
 		if (!this._authenticated) await this.auth();
@@ -278,67 +308,65 @@ class MixpanelProject {
 }
 
 
-
-
 async function authUser() {
 	if (this._authenticated && Object.keys(this._metadata).length) return this._metadata;
-		if (!this._access_token && (!this._service_acct && !this._service_secret)) {
-			throw new Error("Missing required authentication parameters; access_token or service_acct and service_secret");
-		}
-		if (!this._id) {
-			throw new Error("Missing required project id");
-		}
-		let authValue = '';
+	if (!this._access_token && (!this._service_acct && !this._service_secret)) {
+		throw new Error("Missing required authentication parameters; access_token or service_acct and service_secret");
+	}
+	if (!this._id) {
+		throw new Error("Missing required project id");
+	}
+	let authValue = '';
 
-		if (this._service_acct && this._service_secret) {
-			authValue = `Basic ${Buffer.from(this._service_acct + ":" + this._service_secret).toString('base64')}`;
-			this._auth_header_service_acct = { Authorization: authValue };
-		}
-		if (this._access_token) {
-			authValue = `Bearer ${this._access_token}`;
-			this._auth_header_access_token = { Authorization: authValue };
-		}
-		if (!authValue) throw new Error('Missing auth value');
+	if (this._service_acct && this._service_secret) {
+		authValue = `Basic ${Buffer.from(this._service_acct + ":" + this._service_secret).toString('base64')}`;
+		this._auth_header_service_acct = { Authorization: authValue };
+	}
+	if (this._access_token) {
+		authValue = `Bearer ${this._access_token}`;
+		this._auth_header_access_token = { Authorization: authValue };
+	}
+	if (!authValue) throw new Error('Missing auth value');
 
-		try {
-			const {results: userInfo = {}} = await fetch({ method: 'GET', url: urls.me(this._region), headers: this.headers() });
-			this._metadata.user = userInfo;
-		}
-		catch (e) {
-			console.error(`user auth error`, e);
-			if (NODE_ENV === 'dev') debugger;
-			throw e;
-		}
-		try {
-			const { results = {} } = await fetch({ method: 'GET', url: urls.projectMetaData(this._id, this._region), headers: this.headers('service_acct') });
-			const { api_key, organizationId: organizationId, organizationName, secret, token } = results;
-			this._org_id = organizationId;
-			this._org_name = organizationName;
-			this._api_secret = secret;
-			this._token = token;
-			this.api_key = api_key;
-			this._metadata.project = results;
-			const { results: resultsAlso = {} } = await fetch({ method: 'GET', url: urls.projectMetaAlso(this._id, this._region), headers: this.headers() });
-			const { workspaces = {} } = resultsAlso;
+	try {
+		const { results: userInfo = {} } = await fetch({ method: 'GET', url: urls.me(this._region), headers: this.headers() });
+		this._metadata.user = userInfo;
+	}
+	catch (e) {
+		console.error(`user auth error`, e);
+		if (NODE_ENV === 'dev') debugger;
+		throw e;
+	}
+	try {
+		const { results = {} } = await fetch({ method: 'GET', url: urls.projectMetaData(this._id, this._region), headers: this.headers('service_acct') });
+		const { api_key, organizationId: organizationId, organizationName, secret, token } = results;
+		this._org_id = organizationId;
+		this._org_name = organizationName;
+		this._api_secret = secret;
+		this._token = token;
+		this.api_key = api_key;
+		this._metadata.project = results;
+		const { results: resultsAlso = {} } = await fetch({ method: 'GET', url: urls.projectMetaAlso(this._id, this._region), headers: this.headers() });
+		const { workspaces = {} } = resultsAlso;
 
-			for (const space in workspaces) {
-				for (const key in workspaces[space]) {
-					if (key === 'is_global' && workspaces[space][key] === true) {
-						this._workspace_id = workspaces[space].id;
-						break;
-					}
+		for (const space in workspaces) {
+			for (const key in workspaces[space]) {
+				if (key === 'is_global' && workspaces[space][key] === true) {
+					this._workspace_id = workspaces[space].id;
+					break;
 				}
 			}
+		}
 
-			this._metadata.project = { ...this._metadata.project, ...resultsAlso };
-		}
-		catch (e) {
-			console.error(`project auth error`, e);
-			if (NODE_ENV === 'dev') debugger;
-			throw e;
-		}
-		this._authenticated = true;
-		return this._metadata;
+		this._metadata.project = { ...this._metadata.project, ...resultsAlso };
+	}
+	catch (e) {
+		console.error(`project auth error`, e);
+		if (NODE_ENV === 'dev') debugger;
+		throw e;
+	}
+	this._authenticated = true;
+	return this._metadata;
 
 }
 

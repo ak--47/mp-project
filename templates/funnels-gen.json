@@ -1,0 +1,102 @@
+{
+    "sections": {
+        "cohorts": [],
+        "filter": [],
+        "formula": [],
+		"show": [
+            {
+                "isExpanded": true,
+                "behavior": {
+                    "type": "funnel",
+                    "name": null,
+                    "resourceType": "events",
+                    "dataGroupId": null,
+                    "filters": [],
+                    "behaviors": [
+                        {
+                            "id": null,
+                            "type": "event",
+                            "name": "watch video",
+                            "filters": [],
+                            "filtersDeterminer": "all",
+                            "funnelOrder": "loose"
+                        },
+                        {
+                            "id": null,
+                            "type": "event",
+                            "name": "sign up",
+                            "filters": [],
+                            "filtersDeterminer": "all",
+                            "funnelOrder": "loose"
+                        }
+                    ],
+                    "conversionWindowDuration": 5,
+                    "conversionWindowUnit": "day",
+                    "funnelOrder": "loose",
+                    "exclusions": [],
+                    "aggregateBy": [],
+                    "dataset": null,
+                    "profileType": null,
+                    "search": ""
+                },
+                "display": {},
+                "measurement": {
+                    "stepIndex": null,
+                    "math": "conversion_rate_unique",
+                    "perUserAggregation": null,
+                    "rolling": null,
+                    "cumulative": false,
+                    "actionMode": "last_touch",
+                    "actionStep": 1,
+                    "segmentMethod": null,
+                    "property": null
+                }
+            }
+        ],
+        "group": [
+            {
+                "dataset": "$mixpanel",
+                "value": "$os",
+                "resourceType": "events",
+                "profileType": null,
+                "search": "",
+                "dataGroupId": null,
+                "propertyType": "string",
+                "typeCast": null,
+                "unit": null
+            }
+        ],        
+        "time": [
+            {
+                "dateRangeType": "in the last",
+                "window": {
+                    "value": 30,
+                    "unit": "day"
+                },
+                "unit": "day"
+            }
+        ]
+    },
+    "legend": {
+        "overrides": {}
+    },
+    "columnWidths": {
+        "bar": {}
+    },
+    "displayOptions": {
+        "chartType": "funnel-steps",
+        "plotStyle": "standard",
+        "analysis": "linear",
+        "value": "absolute",
+        "funnelStepsSelectedTableColumns": {
+            "conv-first-step": false,
+            "conv-prev-step": true,
+            "count": true,
+            "stat-sig": true,
+            "time-first-step": false,
+            "time-prev-step": true
+        },
+        "primaryYAxisOptions": {},
+        "statSigControl": []
+    }    
+}

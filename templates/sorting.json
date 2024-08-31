@@ -1,0 +1,97 @@
+"sorting": {
+	"bar": {
+		"sortBy": "column",
+		"colSortAttrs": [
+			{
+				"sortBy": "value",
+				"sortOrder": "desc"
+			},
+			{
+				"sortBy": "value",
+				"sortOrder": "desc"
+			}
+		]
+	},
+	"line": {
+		"sortBy": "column",
+		"colSortAttrs": [
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "averageValue"
+			},
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "averageValue"
+			}
+		]
+	},
+	"table": {
+		"sortBy": "value",
+		"sortOrder": "desc",
+		"valueField": "totalValue",
+		"viewNLimit": 12,
+		"colSortAttrs": [
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "totalValue",
+				"viewNLimit": 12
+			},
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "totalValue",
+				"viewNLimit": 12
+			}
+		]
+	},
+	"insights-metric": {
+		"sortBy": "column",
+		"colSortAttrs": [
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "totalValue"
+			},
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "totalValue"
+			}
+		]
+	},
+	"pie": {
+		"sortBy": "column",
+		"colSortAttrs": [
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "totalValue"
+			},
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "totalValue"
+			}
+		]
+	},
+	"retention-curve": {
+		"sortBy": "value",
+		"sortOrder": "desc",
+		"valueField": "size",
+		"colSortAttrs": [
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "size"
+			},
+			{
+				"sortBy": "value",
+				"sortOrder": "desc",
+				"valueField": "size"
+			}
+		]
+	}
+}

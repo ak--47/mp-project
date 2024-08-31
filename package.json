@@ -16,6 +16,8 @@
     "nodemon": "^3.1.4"
   },
   "dependencies": {
-    "ak-fetch": "^1.0.4"
+    "ak-fetch": "^1.0.5",
+    "axios": "^1.7.6",
+    "duckdb": "^1.0.0"
   }
 }

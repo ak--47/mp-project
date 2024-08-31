@@ -1,0 +1,66 @@
+{
+	"sections": {
+		"cohorts": [],
+		"filter": [],
+		"formula": [],
+		"show": [
+			{
+				"behavior": {
+					"type": "event",
+					"resourceType": "events",
+					"dataGroupId": null,
+					"dataset": "$mixpanel",
+					"filters": [],
+					"name": "$all_events",
+					"profileType": null,
+					"search": ""
+				},
+				"display": {},
+				"measurement": {
+					"math": "total",
+					"perUserAggregation": null,
+					"rolling": null,
+					"cumulative": false,
+					"property": null
+				}
+			}
+		],
+		"group": [
+			{
+				"dataset": "$mixpanel",
+				"value": "$event_name",
+				"resourceType": "events",
+				"profileType": null,
+				"search": "",
+				"dataGroupId": null,
+				"propertyType": "string",
+				"typeCast": null,
+				"unit": null
+			}
+		],
+		"time": [
+			{
+				"dateRangeType": "in the last",
+				"window": {
+					"value": 30,
+					"unit": "day"
+				},
+				"unit": "day"
+			}
+		]
+	},
+	"legend": {
+		"overrides": {}
+	},
+	"columnWidths": {
+		"bar": {}
+	},
+	"displayOptions": {
+		"chartType": "line",
+		"plotStyle": "standard",
+		"analysis": "linear",
+		"value": "absolute",
+		"primaryYAxisOptions": {},
+		"statSigControl": []
+	}
+}
