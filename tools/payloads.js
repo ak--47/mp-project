@@ -1,12 +1,25 @@
 const dayjs = require('dayjs');
-const insightsTemplate = require('./insightsTemplate.json');
-const funnelsTemplate = require('./funnelsTemplate.json');
-const flowsTemplate = require('./flowsTemplate.json');
-const retentionTemplate = require('./retentionTemplate.json');
+const URLs = require('./urls.js');
+const insightsTemplate = require('../templates/models/insights-temp.json');
+const funnelsTemplate = require('../templates/models/funnels-temp.json');
+const flowsTemplate = require('../templates/models/flows-temp.json');
+const retentionTemplate = require('../templates/models/retention-temp.json');
+const customEventTemplate = require('../templates/models/custom-event-temp.json');
+const customPropTemplate = require('../templates/models/custom-prop-temp.json');
+const cohortTemplate = require('../templates/models/cohort-temp.json');
 
 
-module.exports.setTheme = function (colors, name) {
+
+
+/**
+ * sets the color theme for a project
+ * @param  {string[]} colors
+ * @param  {string} name
+ * @param  {number} project_id
+ */
+module.exports.setTheme = function (colors, name, project_id) {
 	if (!colors) colors = ["#6AFF57", "#57443F", "#3B7974", "#826018", "#731128", "#3B586C", "#593419", "#0D7EA0", "#1A804F", "#BB4434", "#070208", "#05433E"];
+	let url = URLs.saveTheme(project_id);
 	const payload = {
 		"type": "categorical",
 		"name": name,
@@ -15,19 +28,13 @@ module.exports.setTheme = function (colors, name) {
 		},
 		"global_access_type": "editor"
 	};
-
-	return payload;
+	cleanPayload(payload);
+	return [url, payload];
 };
 
-
-module.exports.createDash = function (name, description) {
-
-};
 
 /**
- * @typedef {Object} SimplePayload
- * @property {string} [from] - The start date in ISO format.
- * @property {string} [to] - The end date in ISO format.
+ * @typedef {Object} ReportPayload
  * @property {string} [shape] - The shape of the report, e.g., "line".
  * @property {number} [days] - The number of days to include in the report.
  * @property {Array<string>} [breakdowns] - An array of breakdowns.
@@ -41,30 +48,50 @@ module.exports.createDash = function (name, description) {
  */
 
 /**
+ * creates a new report URL + payload for a particular dashboard
  * @param  {string} name
  * @param  {string} desc
+ * @param  {number} workspace
  * @param  {number} dash
- * @param  {SimplePayload} simplePayload
+ * @param  {ReportPayload} reportPayload
  * @param  {'insights' | 'funnels' | 'flows' | 'retention'} type
+ * @param  {string} [region]
  */
-module.exports.createReport = function (name, desc, dash, simplePayload = {}, type = "insights") {
-	const { from = dayjs().subtract(30, 'd').toISOString(), to = dayjs().toISOString(), days = 0, shape = "line", breakdowns = [], blocks = [{ ev: "$all_events", maths: "total" }] } = simplePayload;
+module.exports.newReport = function (name, desc, workspace, dash, reportPayload = {}, type = "insights", region = "US") {
+	const { days = 30, shape = "line", breakdowns = [], blocks = [{ ev: "$all_events", maths: "total" }] } = reportPayload;
 	let template;
+	let url = URLs.createReport(workspace, workspace, dash, region);
 	switch (type) {
 		case "insights":
-			template = 'foo';
+			template = insightsTemplate;
 			break;
 		case "funnels":
-			template = 'bar';
+			template = funnelsTemplate;
 			break;
 		case "flows":
-			template = 'baz';
+			template = flowsTemplate;
 			break;
 		case "retention":
-			template = 'qux';
+			template = retentionTemplate;
 			break;
 		default:
 			throw new Error(`type ${type} is invalid type; must be one of 'insights', 'funnels', 'flows', or 'retention'`);
+	}
+
+	// date stuff
+	if (days) {
+		template.time = [{
+			"dateRangeType": "in the last",
+			"window": {
+				"value": days,
+				"unit": "day"
+			},
+			"unit": "day"
+		}];
+	}
+
+	if (shape) {
+		template.displayOptions.chartType = shape;
 	}
 
 	const payload = {
@@ -82,31 +109,125 @@ module.exports.createReport = function (name, desc, dash, simplePayload = {}, ty
 			}
 		}
 	};
+	cleanPayload(payload);
+	return [url, payload];
+};
+
+/**
+ * creates a new cohort URL and payload
+ * @param  {string} name
+ * @param  {string} desc
+ * @param  {number} workspace
+ * @param  {{event: string, days: number}[]} cohortPayload={}
+ * @param  {string} region="US"
+ */
+module.exports.newCohort = function (name, desc, workspace, cohortPayload = {}, region = "US") {
+	let url = URLs.createCohort(workspace, region);
+	const payload = {};
+	let template = cohortTemplate.groups[0].filters[0];
+	const { events = [] } = eventPayload;
+	for (const ev of events) {
+		const obj = clone(template);
+		obj.customProperty.behavior.event.value = ev.event;
+		obj.customProperty.behavior.dateRange.window.value = ev.days;
+		customEvPayload.push(obj);
+	}
+	cleanPayload(payload);
+	return [url, payload];
+};
+
+/**
+ * creates a new custom event URL and payload
+ * @param  {string} name
+ * @param  {string} desc
+ * @param  {number} workspace
+ * @param  {{events: string[]}} eventPayload={}
+ * @param  {string} region="US"
+ */
+module.exports.newCustomEvent = function (name, workspace, eventPayload = {}, region = "US") {
+	let url = URLs.createCustomEvent(workspace, region);
+	let template = customEventTemplate[0];
+	const { events = [] } = eventPayload;
+	const customEvPayload = [];
+	for (const ev of events) {
+		const obj = clone(template);
+		obj.event = ev;
+		customEvPayload.push(obj);
+	}
+
+	cleanPayload(customEvPayload);
+	const payload = new FormData();
+	payload.append('name', name);
+	payload.append('alternatives', JSON.stringify(customEvPayload));
+	return [url, payload];
+};
+
+/**
+ * creates a new custom property URL and payload
+ * @param  {string} name
+ * @param  {string} desc
+ * @param  {number} workspace
+ * @param  {{displayFormula: Object, composedProperties: object}} propPayload={}
+ * @param  {string} region="US"
+ */
+module.exports.newCustomProp = function (name, desc, workspace, propPayload = {}, region = "US") {
+	let url = URLs.createCustomProp(workspace, region);
+
+	const payload = customPropTemplate;
+	payload.name = name;
+	payload.description = desc;
+	const {
+		displayFormula = {},
+		composedProperties = {},
+		resourceType = "events",
+		propertyType = "string",
+		exampleValue = ""
+	} = propPayload;
+	payload.displayFormula = displayFormula;
+	payload.composedProperties = composedProperties;
+	payload.resourceType = resourceType;
+	payload.propertyType = propertyType;
+	payload.exampleValue = exampleValue;
+	cleanPayload(payload);
+	return [url, payload];
 };
 
 
 
-{
-	"content": {
-		"action": "create",
-			"content_type": "report",
-				"content_params": {
-			"bookmark": {
-				"type": "insights",
-					"name": "Untitled",
-						"description": "",
-							"dashboard_id": 7351229,
-								"params": { }
-			}
-		}
-	}
-}
+
+
+
 
 // layout payload
 const layout = { "layout": { "rows": [{ "height": 0, "cells": [{ "id": "fEGqmELw", "width": 6 }, { "id": "dQ32tc8d", "width": 6 }], "id": "TUvsEPn4" }, { "height": 0, "cells": [], "id": "qATtSFxj" }], "rows_order": ["TUvsEPn4", "bTJDNg75", "qATtSFxj"] } };
 
+
+
+
+
+
+
+
+
+
+
+module.exports.cleanPayload = cleanPayload;
+
+
+function cleanPayload(payload) {
+	//recursively remove blacklisted keys
+	for (let key in payload) {
+		if (blacklistKeys.includes(key)) {
+			delete payload[key];
+		} else if (typeof payload[key] === 'object') {
+			cleanPayload(payload[key]);
+		}
+	}
+}
+
+
 // blacklisted keys
-module.exports.blacklistKeys = [
+const blacklistKeys = [
 	"TEXT",
 	"MEDIA",
 	"LAYOUT",

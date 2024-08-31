@@ -1,0 +1,45 @@
+{
+    "name": "the fooiest",
+    "description": "game in town",
+    "displayFormula": "// Select a numeric property. In this example the property is assumed to\n// be the time a user took to do an action, in minutes. This formula\n// groups durations based on specified ranges.\nIFS(\n   _A  < 60, \"Less than 1 hour\",\n   _B  < 120, \"More than 1 hour, less than 2 hours\",\n   _C  < 240, \"More than 2 hours, less than 4 hours\",\n   _D  < 360, \"More than 4 hours, less than 6 hours\",\n   _E  >= 360, \"More than 6 hours\"\n)",
+    "composedProperties": {
+        "_A": {
+            "label": "Browser",
+            "propertyDefaultType": "string",
+            "resourceType": "event",
+            "type": "string",
+            "value": "$browser"
+        },
+        "_B": {
+            "label": "City",
+            "propertyDefaultType": "string",
+            "resourceType": "event",
+            "type": "string",
+            "value": "$city"
+        },
+        "_C": {
+            "label": "Referring Domain",
+            "propertyDefaultType": "string",
+            "resourceType": "event",
+            "type": "string",
+            "value": "$referring_domain"
+        },
+        "_D": {
+            "label": "Screen Width",
+            "propertyDefaultType": "number",
+            "resourceType": "event",
+            "type": "number",
+            "value": "$screen_width"
+        },
+        "_E": {
+            "label": "UTM Term",
+            "propertyDefaultType": "string",
+            "resourceType": "event",
+            "type": "string",
+            "value": "utm_term"
+        }
+    },
+    "resourceType": "events",
+    "propertyType": "string",
+    "exampleValue": ""
+}

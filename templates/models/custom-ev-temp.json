@@ -1,0 +1,9 @@
+[
+	{
+		"event": "like",
+		"valid_segfilter": {
+			"filters": [],
+			"op": "and"
+		}
+	}
+]

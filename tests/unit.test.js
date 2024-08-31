@@ -16,8 +16,6 @@ const options = {
 let project;
 
 beforeEach(() => {
-
-
 	project = new MixpanelProject(options);
 });
 

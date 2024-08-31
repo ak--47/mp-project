@@ -25,6 +25,8 @@ const urls = require('./tools/urls');
 const payloads = require('./tools/payloads');
 
 
+
+
 /** 
  * @typedef {Object} MpProjectOptions
  * @property {string} [name] - project name
@@ -106,181 +108,46 @@ class MixpanelProject {
 		return this._assets.formulas;
 	}
 
-	async auth() {
-		await authUser.call(this);
-	}
-
-	async getAll() {
-		if (!this._authenticated) await this.auth();
-		this.clear();
-		const schema = await this.getSchema();
-		const dashboards = await this.getDash();
-		const cohort = await this.getCohorts();
-		const customEvents = await this.getCustomEvents();
-		const customProps = await this.getCustomProps();
-		const formulas = await this.getFormulas();
-		const users = await this.getUsers();
-		return { schema, dashboards, cohort, customEvents, customProps, formulas, users };
-	}
-
-
-	async getSchema() {
-		if (!this._authenticated) await this.auth();
-		if (Object.keys(this._assets.schema).length) return this._assets.schema;
-		const schema = await getSchemaUnofficial({
-			headers: this.headers(),
-			project: this._id,
-			workspace: this._workspace_id
-
-		});
-
-		this._assets.schema = schema;
-		return schema;
-	}
-
-	async setSchema(schema) {
-		//todo
-	}
-
-	async request(url, payload = null, method = "POST", additionalHeaders = {}, blacklist = true) {
-		if (!this._authenticated) await this.auth();
-		if (Object.keys(additionalHeaders).length) additionalHeaders = { "content-type": "application/json", "accept": "application/json" };
-		const headers = { ...this.headers(), ...additionalHeaders };
-		if (blacklist) for (const key of payloads.blacklistKeys) if (payload[key]) delete payload[key];
-		const response = await fetch({ method, url, headers, data: payload, noBatch: true });
-		return response;
-	}
-
-
-	async getDash(dashId) {
-		if (!this._authenticated) await this.auth();
-		if (dashId) return await fetch({ url: urls.getSingleDash(this._workspace_id, dashId, this._region), headers: this.headers() });
-		if (this._assets.dashboards.length) return this._assets.dashboards;
-		const { results: dashboards } = await fetch({
-			method: 'GET',
-			url: urls.getAllDash(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		const dashIds = dashboards.map(d => d.id);
-		const allDashboards = (await batchDashboards(dashIds, this._workspace_id, this._region, this.headers()))
-			.map(d => d.results);
-		for (const dash of allDashboards) {
-			this._assets.dashboards.push(dash);
-			const { contents = {} } = dash;
-			const { report: reports = {} } = contents;
-			this._assets.reports.push(...Object.values(reports));
-		}
-		return allDashboards;
-	}
-
-	async createDash(title, description = "") {
-		if (!this._authenticated) await this.auth();
-		if (!title) title = nameMaker(3, ' ');
-		const createUrl = urls.makeDash(this._workspace_id, this._region);
-		const createPayload = { title: "Untitled" };
-		const createResponse = await this.request(createUrl, createPayload);
-		const { id: dashId } = createResponse;
-		const editPayload = { title, description };
-		const editUrl = urls.makeReport(this._workspace_id, dashId, this._region);
-		const editResponse = await this.request(editUrl, editPayload, "PATCH");
-
-		const sharePayload = { "id": dashId, "projectShares": [{ "id": this._id, "canEdit": true }] };
-		const shareUrl = urls.shareDash(this._id, dashId, this._region);
-		const shareResponse = await this.request(shareUrl, sharePayload, "POST");
-
-		const pinDashUrl = urls.pinDash(this._workspace_id, dashId, this._region);
-		const pinDashResponse = await this.request(pinDashUrl, {}, "POST");
-
-		return { createResponse, editResponse, shareResponse, pinDashResponse };
-	}
-
-
-
-	async getCohorts() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.cohorts.length) return this._assets.cohorts;
-		const { results: cohorts = [] } = await fetch({
-			method: 'GET',
-			url: urls.getCohorts(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		this._assets.cohorts = cohorts;
-		return cohorts;
+	static async makeProject(opts = {}) {
+		if (!this._access_token) throw new Error('Missing access_token');
+		if (!this._org_id) throw new Error('Missing org_id');
+		const { groupKeys = {} } = opts;
 
 	}
 
-	async setCohorts(cohorts) {
-		if (!Array.isArray(cohorts)) cohorts = [cohorts];
-	}
-
-	async getCustomEvents() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.custom_events.length) return this._assets.custom_events;
-		const { custom_events = [] } = await fetch({
-			method: 'GET',
-			url: urls.getCustomEvents(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		this._assets.custom_events = custom_events;
-		return custom_events;
-	}
-
-	async setCustomEvents(customEvents) {
-		if (!Array.isArray(customEvents)) customEvents = [customEvents];
-	}
-
-	async getCustomProps() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.custom_props.length) return this._assets.custom_props;
-		const { results: custom_props = [] } = await fetch({
-			method: 'GET',
-			url: urls.getCustomProps(this._workspace_id, this._region),
-			headers: this.headers()
-		});
-		this._assets.custom_props = custom_props;
-		return custom_props;
-	}
-
-	async setCustomProps(customProps) {
-		if (!Array.isArray(customProps)) customProps = [customProps];
-	}
-
-	async getFormulas() {
-		if (!this._authenticated) await this.auth();
-		if (this._assets.formulas.length) return this._assets.formulas;
-		const { results: formulas = [] } = await fetch({
-			method: 'GET',
-			url: urls.getFormulas(this._id, this._region),
-			headers: this.headers()
-		});
-		this._assets.formulas = formulas;
-		return formulas;
-	}
-
-	async setFormulas(formulas) {
-		if (!Array.isArray(formulas)) formulas = [formulas];
-	}
-
-	async getUsers() {
-		if (!this._authenticated) await this.auth();
-		const { results: users = [] } = await fetch({
-			method: 'GET',
-			url: urls.getUsers(this._id, this._region),
-			headers: this.headers()
-		});
-		this._assets.users = users;
-		return users;
-
-	}
-
-	async addUsers(users) {
-		if (!Array.isArray(users)) users = [users];
-	}
-
-	async removeUsers(users) {
-		if (!Array.isArray(users)) users = [users];
-	}
-
+	auth = auth;
+	request = request;
+	getAll = getAll;
+	deleteAll = deleteAll;
+	getSchema = getSchema;
+	createSchema = createSchema;
+	deleteSchema = deleteSchema;
+	getDash = getDash;
+	createDash = createDash;
+	deleteDash = deleteDash;
+	getReport = getReport;
+	createReport = createReport;
+	deleteReport = deleteReport;
+	getCohorts = getCohorts;
+	getCohort = getCohort;
+	createCohort = createCohort;
+	deleteCohort = deleteCohort;
+	getCustomEvents = getCustomEvents;
+	getCustomEvent = getCustomEvent;
+	createCustomEvent = createCustomEvent;
+	deleteCustomEvent = deleteCustomEvent;
+	getCustomProps = getCustomProps;
+	getCustomProp = getCustomProp;
+	createCustomProp = createCustomProp;
+	deleteCustomProp = deleteCustomProp;
+	getFormulas = getFormulas;
+	getFormula = getFormula;
+	createFormula = createFormula;
+	deleteFormula = deleteFormula;
+	getUsers = getUsers;
+	getUser = getUser;
+	createUser = createUser;
+	deleteUser = deleteUser;
 
 	clear() {
 		this._assets = {
@@ -296,19 +163,12 @@ class MixpanelProject {
 	}
 
 
-
-	static async makeProject(opts = {}) {
-		if (!this._access_token) throw new Error('Missing access_token');
-		if (!this._org_id) throw new Error('Missing org_id');
-		if (!this._authenticated) await this.auth();
-		const { groupKeys = {} } = opts;
-
-	}
-
 }
 
 
-async function authUser() {
+
+// !AUTH
+async function auth() {
 	if (this._authenticated && Object.keys(this._metadata).length) return this._metadata;
 	if (!this._access_token && (!this._service_acct && !this._service_secret)) {
 		throw new Error("Missing required authentication parameters; access_token or service_acct and service_secret");
@@ -369,7 +229,243 @@ async function authUser() {
 	return this._metadata;
 
 }
+async function request(url, payload = null, method = "POST", additionalHeaders = {}, blacklist = true) {
+	if (Object.keys(additionalHeaders).length) additionalHeaders = { "content-type": "application/json", "accept": "application/json" };
+	const headers = { ...this.headers(), ...additionalHeaders };
+	if (blacklist) for (const key of payloads.blacklistKeys) if (payload[key]) delete payload[key];
+	const response = await fetch({ method, url, headers, data: payload, noBatch: true });
+	return response;
+}
 
+// ! ENUMERATE
+async function getAll() {
+	this.clear();
+	const schema = await this.getSchema();
+	const dashboards = await this.getDash();
+	const cohorts = await this.getCohorts();
+	const customEvents = await this.getCustomEvents();
+	const customProps = await this.getCustomProps();
+	const formulas = await this.getFormulas();
+	const users = await this.getUsers();
+	return { schema, dashboards, cohort: cohorts, customEvents, customProps, formulas, users };
+}
+async function deleteAll() {
+	const deleted = {
+		dashboards: [],
+		cohorts: [],
+		custom_events: [],
+		custom_props: [],
+		formulas: [],
+	};
+	const toDelete = await this.getAll();
+	const { dashboards, cohorts, custom_events, custom_props, formulas } = toDelete;
+	const deleteItems = async function (items, deleteMethod, deletedArray) => {
+		for (const item of items) {
+			const { id } = item;
+			const deletedItem = await deleteMethod.call(this, id);
+			deletedArray.push(deletedItem);
+		}
+	};
+
+	await deleteItems(dashboards, this.deleteDash, deleted.dashboards);
+	await deleteItems(cohorts, this.deleteCohort, deleted.cohorts);
+	await deleteItems(custom_events, this.deleteCustomEvent, deleted.custom_events);
+	await deleteItems(custom_props, this.deleteCustomProp, deleted.custom_props);
+	await deleteItems(formulas, this.deleteFormula, deleted.formulas);
+
+	return deleted;
+}
+
+
+// ! DASHBOARDS
+async function getDash(dashId) {
+	if (dashId) return await fetch({ url: urls.getSingleDash(this._workspace_id, dashId, this._region), headers: this.headers() });
+	if (this._assets.dashboards.length) return this._assets.dashboards;
+	const { results: dashboards } = await fetch({
+		method: 'GET',
+		url: urls.getAllDash(this._workspace_id, this._region),
+		headers: this.headers()
+	});
+	const dashIds = dashboards.map(d => d.id);
+	const allDashboards = (await batchDashboards(dashIds, this._workspace_id, this._region, this.headers()))
+		.map(d => d.results);
+	for (const dash of allDashboards) {
+		this._assets.dashboards.push(dash);
+		const { contents = {} } = dash;
+		const { report: reports = {} } = contents;
+		this._assets.reports.push(...Object.values(reports));
+	}
+	return allDashboards;
+}
+async function createDash(title, description = "") {
+	if (!title) title = nameMaker(3, ' ');
+	const createUrl = urls.makeDash(this._workspace_id, this._region);
+	const createPayload = { title: "Untitled" };
+	const createResponse = await this.request(createUrl, createPayload);
+	const { id: dashId } = createResponse;
+	const editPayload = { title, description };
+	const editUrl = urls.makeReport(this._workspace_id, dashId, this._region);
+	const editResponse = await this.request(editUrl, editPayload, "PATCH");
+
+	const sharePayload = { "id": dashId, "projectShares": [{ "id": this._id, "canEdit": true }] };
+	const shareUrl = urls.shareDash(this._id, dashId, this._region);
+	const shareResponse = await this.request(shareUrl, sharePayload, "POST");
+
+	const pinDashUrl = urls.pinDash(this._workspace_id, dashId, this._region);
+	const pinDashResponse = await this.request(pinDashUrl, {}, "POST");
+	this._assets.dashboards.push(dash);
+	return { createResponse, editResponse, shareResponse, pinDashResponse };
+}
+async function deleteDash(dashId) {
+	const url = urls.getSingleDash(this._workspace_id, dashId, this._region);
+	const response = await fetch({ method: 'DELETE', url, headers: this.headers() });
+	return response;
+
+}
+
+// ! REPORTS
+async function getReport(reportId) {
+	const url = urls.getSingleReport(this._workspace_id, reportId, this._region);
+	const response = await fetch({ method: 'GET', url, headers: this.headers() });
+	return response;
+}
+async function createReport(name, desc, dashId, data, type = "insights") {
+	const [url, payload] = payloads.newReport(name, desc, this._workspace_id, dashId, data, type, this._region);
+	const reportResponse = await this.request(url, payload);
+	return reportResponse;
+}
+async function deleteReport(dashId, reportId) {
+	const payload = {
+		"content": {
+			"action": "delete",
+			"content_id": reportId,
+			"content_type": "report"
+		}
+		// !todo do i need layout?
+	};
+	const url = urls.getSingleDash(this._workspace_id, dashId, this._region);
+	const response = await this.request(url, payload, "PATCH");
+	return response;
+}
+
+
+// ! COHORTS
+async function getCohorts() {
+	if (this._assets.cohorts.length) return this._assets.cohorts;
+	const { results: cohorts = [] } = await fetch({
+		method: 'GET',
+		url: urls.getCohorts(this._workspace_id, this._region),
+		headers: this.headers()
+	});
+	this._assets.cohorts = cohorts;
+	return cohorts;
+
+}
+async function getCohort(cohortId) {
+	const cohorts = await this.getCohorts();
+	const cohort = cohorts.find(c => c.id === cohortId);
+	return cohort;
+}
+async function createCohort(cohort) { }
+async function deleteCohort(cohortId) { }
+
+
+// ! CUSTOM EVENTS
+async function getCustomEvents() {
+	if (this._assets.custom_events.length) return this._assets.custom_events;
+	const { custom_events = [] } = await fetch({
+		method: 'GET',
+		url: urls.getCustomEvents(this._workspace_id, this._region),
+		headers: this.headers()
+	});
+	this._assets.custom_events = custom_events;
+	return custom_events;
+}
+async function getCustomEvent(customEventId) {
+	const customEvents = await this.getCustomEvents();
+	const customEvent = customEvents.find(c => c.id === customEventId);
+	return customEvent;
+}
+async function createCustomEvent(customEvent) { }
+async function deleteCustomEvent(customEventId) { }
+
+
+// ! CUSTOM PROPS
+async function getCustomProps() {
+	if (this._assets.custom_props.length) return this._assets.custom_props;
+	const { results: custom_props = [] } = await fetch({
+		method: 'GET',
+		url: urls.getCustomProps(this._workspace_id, this._region),
+		headers: this.headers()
+	});
+	this._assets.custom_props = custom_props;
+	return custom_props;
+}
+async function getCustomProp(customPropId) {
+	const customProps = await this.getCustomProps();
+	const customProp = customProps.find(c => c.id === customPropId);
+	return customProp;
+}
+async function createCustomProp(customProp) { }
+async function deleteCustomProp(customPropId) { }
+
+// ! FORMULAS
+async function getFormulas() {
+	if (this._assets.formulas.length) return this._assets.formulas;
+	const { results: formulas = [] } = await fetch({
+		method: 'GET',
+		url: urls.getFormulas(this._id, this._region),
+		headers: this.headers()
+	});
+	this._assets.formulas = formulas;
+	return formulas;
+}
+async function getFormula(formulaId) {
+	const formulas = await this.getFormulas();
+	const formula = formulas.find(f => f.id === formulaId);
+	return formula;
+}
+async function createFormula(formula) { }
+async function deleteFormula(formulaId) { }
+
+// ! USERS
+async function getUsers() {
+	const { results: users = [] } = await fetch({
+		method: 'GET',
+		url: urls.getUsers(this._id, this._region),
+		headers: this.headers()
+	});
+	this._assets.users = users;
+	return users;
+}
+async function getUser(userId) {
+	const users = await this.getUsers();
+	const user = users.find(u => u.id === userId);
+	return user;
+}
+async function createUser(user) { }
+async function deleteUser(userId) { }
+
+
+// ! SCHEMA
+async function getSchema() {
+	if (Object.keys(this._assets.schema).length) return this._assets.schema;
+	const schema = await getSchemaUnofficial({
+		headers: this.headers(),
+		project: this._id,
+		workspace: this._workspace_id
+
+	});
+
+	this._assets.schema = schema;
+	return schema;
+}
+async function createSchema(schema) {
+	//todo
+}
+async function deleteSchema() {
+	//todo
+}
 async function getSchemaUnofficial(creds) {
 	const { headers, project, workspace } = creds;
 
@@ -408,12 +504,13 @@ async function getSchemaUnofficial(creds) {
 
 
 }
-
 async function postSchemaUnofficial(creds, schema) {
 	let { auth, project, workspace, region } = creds;
 
 }
 
+
+// ! UTILS
 async function batchDashboards(dashIds, workspace, region, auth, limit = 10) {
 	const batches = [];
 	for (let i = 0; i < dashIds.length; i += limit) {
@@ -435,7 +532,6 @@ async function batchDashboards(dashIds, workspace, region, auth, limit = 10) {
 	}
 	return results;
 }
-
 async function makeProject(orgId, oauthToken = OAUTH_TOKEN) {
 	const excludedOrgs = [
 		1, // Mixpanel
@@ -476,8 +572,7 @@ async function makeProject(orgId, oauthToken = OAUTH_TOKEN) {
 
 	return data;
 }
-
-async function getUser(oauthToken = OAUTH_TOKEN) {
+async function getUserFromToken(oauthToken = OAUTH_TOKEN) {
 	const user = {};
 	try {
 		if (oauthToken) {
@@ -512,7 +607,6 @@ async function getUser(oauthToken = OAUTH_TOKEN) {
 
 	return user;
 }
-
 async function addGroupKeys(groupKeyDfns = [], projectId, oauthToken = OAUTH_TOKEN) {
 	const url = `https://mixpanel.com/api/app/projects/${projectId}/data-groups/`;
 	const results = [];
@@ -543,7 +637,6 @@ async function addGroupKeys(groupKeyDfns = [], projectId, oauthToken = OAUTH_TOK
 	}
 	return results;
 }
-
 function nameMaker(words = 3, separator = "-") {
 	const adjs = [
 		"dark", "grim", "swift", "brave", "bold", "fiery", "arcane",

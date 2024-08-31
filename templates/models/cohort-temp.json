@@ -1,0 +1,56 @@
+{
+	"name": "HELLO COHORT",
+	"groups": [
+		{
+			"type": "cohort_group",
+			"event": {
+				"resourceType": "cohort",
+				"value": "$all_users"
+			},
+			"filters": [
+				{
+					"customProperty": {
+						"name": "",
+						"description": "",
+						"behavior": {
+							"aggregationOperator": "total",
+							"aggregationOperatorPerUser": null,
+							"event": {								
+								"value": "sign up",
+								"tags": [
+									"important"
+								],
+								"isRecentlyUsed": true
+							},
+							"filters": [],
+							"filtersOperator": "and",
+							"behavioralFiltersOperator": "and",
+							"property": null,
+							"dateRange": {
+								"type": "in the last",
+								"window": {
+									"unit": "day",
+									"value": 30
+								}
+							}
+						}
+					},
+					"customPropertyId": null,
+					"dataGroupId": null,
+					"tempDataGroupId": null,
+					"resourceType": "user",
+					"propertyName": null,
+					"propertyObjectKey": null,
+					"propertyDefaultType": "number",
+					"propertyType": "number",
+					"filterOperator": "is at least",
+					"filterValue": 1
+				}				
+			],
+			"filtersOperator": "and",
+			"behavioralFiltersOperator": "and",
+			"groupingOperator": null,
+			"property": null
+		}
+	]
+}
