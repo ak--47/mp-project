@@ -58,7 +58,7 @@ module.exports.postSchema = function (projectId, reg = `US`) {
 	return `https://${gr(reg)}mixpanel.com/api/app/projects/${projectId}/schemas`;
 };
 
-module.exports.makeDash = function (workSpaceId, reg = `US`) {
+module.exports.createDash = function (workSpaceId, reg = `US`) {
 	return `https://${gr(reg)}mixpanel.com/api/app/workspaces/${workSpaceId}/dashboards/`;
 };
 
@@ -149,7 +149,7 @@ module.exports.listCohorts = function (projectId, workspaceId, reg = `US`) {
 	return `https://${gr(reg)}mixpanel.com/api/2.0/cohorts/list?project_id=${projectId}&workspace_id=${workspaceId}`;
 };
 
-module.exports.makeFormula = function(projectId, reg = `US`) {
+module.exports.createFormula = function(projectId, reg = `US`) {
 	return `https://${gr(reg)}mixpanel.com/api/app/projects/${projectId}/metrics`
 }
 

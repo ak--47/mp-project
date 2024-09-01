@@ -70,7 +70,7 @@ class MixpanelProject {
 		this._authenticated = false;
 		this._metadata = {};
 	}
-	headers(type) {
+	headers(type = "none") {
 		//always use manually set headers if they exist; they usually WON'T
 		if (this._headers) return this._headers;
 
@@ -86,6 +86,71 @@ class MixpanelProject {
 		if (NODE_ENV === 'dev') debugger;
 		throw new Error(`Could not find ${type} headers`);
 	}
+
+	async auth() {
+		if (this._authenticated && Object.keys(this._metadata).length) return this._metadata;
+		if (!this._access_token && (!this._service_acct && !this._service_secret)) {
+			throw new Error("Missing required authentication parameters; access_token or service_acct and service_secret");
+		}
+		if (!this._id) {
+			throw new Error("Missing required project id");
+		}
+		let authValue = '';
+
+		if (this._service_acct && this._service_secret) {
+			authValue = `Basic ${Buffer.from(this._service_acct + ":" + this._service_secret).toString('base64')}`;
+			this._auth_header_service_acct = { Authorization: authValue };
+		}
+		if (this._access_token) {
+			authValue = `Bearer ${this._access_token}`;
+			this._auth_header_access_token = { Authorization: authValue };
+		}
+		if (!authValue) throw new Error('Missing auth value');
+
+		try {
+			const req = await fetch({ method: 'GET', url: urls.me(this._region), headers: this.headers() });
+			const { results: userInfo = {} } = req;
+			this._metadata.user = userInfo;
+		}
+		catch (e) {
+			console.error(`user auth error`, e);
+			if (NODE_ENV === 'dev') debugger;
+			throw e;
+		}
+		try {
+			const { results = {} } = await fetch({ method: 'GET', url: urls.projectMetaData(this._id, this._region), headers: this.headers('service_acct') });
+			const { api_key, organizationId: organizationId, organizationName, secret, token } = results;
+			this._org_id = organizationId;
+			this._org_name = organizationName;
+			this._api_secret = secret;
+			this._token = token;
+			this.api_key = api_key;
+			this._metadata.project = results;
+			const { results: resultsAlso = {} } = await fetch({ method: 'GET', url: urls.projectMetaAlso(this._id, this._region), headers: this.headers() });
+			const { workspaces = {} } = resultsAlso;
+
+			for (const space in workspaces) {
+				for (const key in workspaces[space]) {
+					if (key === 'is_global' && workspaces[space][key] === true) {
+						this._workspace_id = workspaces[space].id;
+						break;
+					}
+				}
+			}
+
+			this._metadata.project = { ...this._metadata.project, ...resultsAlso };
+		}
+		catch (e) {
+			console.error(`project auth error`, e);
+			if (NODE_ENV === 'dev') debugger;
+			throw e;
+		}
+		this._authenticated = true;
+		return this._metadata;
+
+	}
+
+	
 	get schema() {
 		return this._assets.schema;
 	}
@@ -115,13 +180,17 @@ class MixpanelProject {
 
 	}
 
-	auth = auth;
 	request = request;
+
 	getAll = getAll;
 	deleteAll = deleteAll;
 	getSchema = getSchema;
+
+	setTheme = setTheme;
+
 	createSchema = createSchema;
 	deleteSchema = deleteSchema;
+	getDashes = getDashes;
 	getDash = getDash;
 	createDash = createDash;
 	deleteDash = deleteDash;
@@ -165,89 +234,32 @@ class MixpanelProject {
 
 }
 
-
-
-// !AUTH
-async function auth() {
-	if (this._authenticated && Object.keys(this._metadata).length) return this._metadata;
-	if (!this._access_token && (!this._service_acct && !this._service_secret)) {
-		throw new Error("Missing required authentication parameters; access_token or service_acct and service_secret");
-	}
-	if (!this._id) {
-		throw new Error("Missing required project id");
-	}
-	let authValue = '';
-
-	if (this._service_acct && this._service_secret) {
-		authValue = `Basic ${Buffer.from(this._service_acct + ":" + this._service_secret).toString('base64')}`;
-		this._auth_header_service_acct = { Authorization: authValue };
-	}
-	if (this._access_token) {
-		authValue = `Bearer ${this._access_token}`;
-		this._auth_header_access_token = { Authorization: authValue };
-	}
-	if (!authValue) throw new Error('Missing auth value');
-
-	try {
-		const { results: userInfo = {} } = await fetch({ method: 'GET', url: urls.me(this._region), headers: this.headers() });
-		this._metadata.user = userInfo;
-	}
-	catch (e) {
-		console.error(`user auth error`, e);
-		if (NODE_ENV === 'dev') debugger;
-		throw e;
-	}
-	try {
-		const { results = {} } = await fetch({ method: 'GET', url: urls.projectMetaData(this._id, this._region), headers: this.headers('service_acct') });
-		const { api_key, organizationId: organizationId, organizationName, secret, token } = results;
-		this._org_id = organizationId;
-		this._org_name = organizationName;
-		this._api_secret = secret;
-		this._token = token;
-		this.api_key = api_key;
-		this._metadata.project = results;
-		const { results: resultsAlso = {} } = await fetch({ method: 'GET', url: urls.projectMetaAlso(this._id, this._region), headers: this.headers() });
-		const { workspaces = {} } = resultsAlso;
-
-		for (const space in workspaces) {
-			for (const key in workspaces[space]) {
-				if (key === 'is_global' && workspaces[space][key] === true) {
-					this._workspace_id = workspaces[space].id;
-					break;
-				}
-			}
-		}
-
-		this._metadata.project = { ...this._metadata.project, ...resultsAlso };
-	}
-	catch (e) {
-		console.error(`project auth error`, e);
-		if (NODE_ENV === 'dev') debugger;
-		throw e;
-	}
-	this._authenticated = true;
-	return this._metadata;
-
-}
 async function request(url, payload = null, method = "POST", additionalHeaders = {}, blacklist = true) {
 	if (Object.keys(additionalHeaders).length) additionalHeaders = { "content-type": "application/json", "accept": "application/json" };
 	const headers = { ...this.headers(), ...additionalHeaders };
-	if (blacklist) for (const key of payloads.blacklistKeys) if (payload[key]) delete payload[key];
-	const response = await fetch({ method, url, headers, data: payload, noBatch: true });
-	return response;
+	try {
+		const response = await fetch({ method, url, headers, data: payload, noBatch: true });
+		return response;
+	}
+	catch (e) {
+		if (NODE_ENV === 'dev') debugger;
+		if (NODE_ENV === 'test') debugger;
+		throw e;
+	}
 }
+
 
 // ! ENUMERATE
 async function getAll() {
 	this.clear();
 	const schema = await this.getSchema();
-	const dashboards = await this.getDash();
+	const dashboards = await this.getDashes();
 	const cohorts = await this.getCohorts();
 	const customEvents = await this.getCustomEvents();
 	const customProps = await this.getCustomProps();
 	const formulas = await this.getFormulas();
 	const users = await this.getUsers();
-	return { schema, dashboards, cohort: cohorts, customEvents, customProps, formulas, users };
+	return { schema, dashboards, cohorts, customEvents, customProps, formulas, users };
 }
 async function deleteAll() {
 	const deleted = {
@@ -259,7 +271,7 @@ async function deleteAll() {
 	};
 	const toDelete = await this.getAll();
 	const { dashboards, cohorts, custom_events, custom_props, formulas } = toDelete;
-	const deleteItems = async function (items, deleteMethod, deletedArray) => {
+	const deleteItems = async function (items, deleteMethod, deletedArray) {
 		for (const item of items) {
 			const { id } = item;
 			const deletedItem = await deleteMethod.call(this, id);
@@ -276,10 +288,14 @@ async function deleteAll() {
 	return deleted;
 }
 
+async function setTheme(colors, name = nameMaker(3, ' ')) {
+	const [url, payload] = payloads.setTheme(colors, name, this._id);
+	const response = await this.request(url, payload);
+	return response;
+}
 
 // ! DASHBOARDS
-async function getDash(dashId) {
-	if (dashId) return await fetch({ url: urls.getSingleDash(this._workspace_id, dashId, this._region), headers: this.headers() });
+async function getDashes(dashId) {	
 	if (this._assets.dashboards.length) return this._assets.dashboards;
 	const { results: dashboards } = await fetch({
 		method: 'GET',
@@ -287,7 +303,7 @@ async function getDash(dashId) {
 		headers: this.headers()
 	});
 	const dashIds = dashboards.map(d => d.id);
-	const allDashboards = (await batchDashboards(dashIds, this._workspace_id, this._region, this.headers()))
+	const allDashboards = (await batchDash(dashIds, this._workspace_id, this._region, this.headers()))
 		.map(d => d.results);
 	for (const dash of allDashboards) {
 		this._assets.dashboards.push(dash);
@@ -297,14 +313,21 @@ async function getDash(dashId) {
 	}
 	return allDashboards;
 }
+
+async function getDash(dashId) {
+	const dashboards = await this.getDashes();
+	const dashboard = dashboards.find(d => d.id === dashId);
+	return dashboard;
+}
+
 async function createDash(title, description = "") {
 	if (!title) title = nameMaker(3, ' ');
-	const createUrl = urls.makeDash(this._workspace_id, this._region);
+	const createUrl = urls.createDash(this._workspace_id, this._region);
 	const createPayload = { title: "Untitled" };
 	const createResponse = await this.request(createUrl, createPayload);
-	const { id: dashId } = createResponse;
+	const { id: dashId } = createResponse.results;
 	const editPayload = { title, description };
-	const editUrl = urls.makeReport(this._workspace_id, dashId, this._region);
+	const editUrl = urls.createReport(this._workspace_id, dashId, this._region);
 	const editResponse = await this.request(editUrl, editPayload, "PATCH");
 
 	const sharePayload = { "id": dashId, "projectShares": [{ "id": this._id, "canEdit": true }] };
@@ -313,12 +336,12 @@ async function createDash(title, description = "") {
 
 	const pinDashUrl = urls.pinDash(this._workspace_id, dashId, this._region);
 	const pinDashResponse = await this.request(pinDashUrl, {}, "POST");
-	this._assets.dashboards.push(dash);
+	this._assets.dashboards.push(createResponse.results);
 	return { createResponse, editResponse, shareResponse, pinDashResponse };
 }
 async function deleteDash(dashId) {
 	const url = urls.getSingleDash(this._workspace_id, dashId, this._region);
-	const response = await fetch({ method: 'DELETE', url, headers: this.headers() });
+	const response = await this.request(url, {}, "DELETE");
 	return response;
 
 }
@@ -326,12 +349,12 @@ async function deleteDash(dashId) {
 // ! REPORTS
 async function getReport(reportId) {
 	const url = urls.getSingleReport(this._workspace_id, reportId, this._region);
-	const response = await fetch({ method: 'GET', url, headers: this.headers() });
+	const response = await this.request(url, {}, "GET");
 	return response;
 }
 async function createReport(name, desc, dashId, data, type = "insights") {
 	const [url, payload] = payloads.newReport(name, desc, this._workspace_id, dashId, data, type, this._region);
-	const reportResponse = await this.request(url, payload);
+	const reportResponse = await this.request(url, payload, 'PATCH');
 	return reportResponse;
 }
 async function deleteReport(dashId, reportId) {
@@ -373,11 +396,9 @@ async function deleteCohort(cohortId) { }
 // ! CUSTOM EVENTS
 async function getCustomEvents() {
 	if (this._assets.custom_events.length) return this._assets.custom_events;
-	const { custom_events = [] } = await fetch({
-		method: 'GET',
-		url: urls.getCustomEvents(this._workspace_id, this._region),
-		headers: this.headers()
-	});
+	const url = urls.getCustomEvents(this._workspace_id, this._region);
+	const response = await this.request(url, {}, "GET");
+	const custom_events = response.results || [];
 	this._assets.custom_events = custom_events;
 	return custom_events;
 }
@@ -393,11 +414,10 @@ async function deleteCustomEvent(customEventId) { }
 // ! CUSTOM PROPS
 async function getCustomProps() {
 	if (this._assets.custom_props.length) return this._assets.custom_props;
-	const { results: custom_props = [] } = await fetch({
-		method: 'GET',
-		url: urls.getCustomProps(this._workspace_id, this._region),
-		headers: this.headers()
-	});
+	const url = urls.getCustomProps(this._workspace_id, this._region);
+	const response = await this.request(url, {}, "GET");
+	const custom_props = response?.results || [];
+
 	this._assets.custom_props = custom_props;
 	return custom_props;
 }
@@ -412,11 +432,9 @@ async function deleteCustomProp(customPropId) { }
 // ! FORMULAS
 async function getFormulas() {
 	if (this._assets.formulas.length) return this._assets.formulas;
-	const { results: formulas = [] } = await fetch({
-		method: 'GET',
-		url: urls.getFormulas(this._id, this._region),
-		headers: this.headers()
-	});
+	const url = urls.getFormulas(this._id, this._region);
+	const response = await this.request(url, {}, "GET");
+	const formulas = response.results || [];
 	this._assets.formulas = formulas;
 	return formulas;
 }
@@ -430,11 +448,9 @@ async function deleteFormula(formulaId) { }
 
 // ! USERS
 async function getUsers() {
-	const { results: users = [] } = await fetch({
-		method: 'GET',
-		url: urls.getUsers(this._id, this._region),
-		headers: this.headers()
-	});
+	const url = urls.getUsers(this._id, this._region);
+	const response = await this.request(url, {}, "GET");
+	const users = response.results || [];
 	this._assets.users = users;
 	return users;
 }
@@ -450,46 +466,28 @@ async function deleteUser(userId) { }
 // ! SCHEMA
 async function getSchema() {
 	if (Object.keys(this._assets.schema).length) return this._assets.schema;
-	const schema = await getSchemaUnofficial({
-		headers: this.headers(),
-		project: this._id,
-		workspace: this._workspace_id
+	const schemaEvents = await this.request(
+		urls.lexicon(this._project, this._workspace_id, 'events'),
+		{},
+		'GET',
+	);
 
-	});
+	const schemaProps = await this.request(
+		urls.lexicon(this._project, this._workspace_id, 'props'),
+		{},
+		'GET',
+	);
 
-	this._assets.schema = schema;
-	return schema;
-}
-async function createSchema(schema) {
-	//todo
-}
-async function deleteSchema() {
-	//todo
-}
-async function getSchemaUnofficial(creds) {
-	const { headers, project, workspace } = creds;
+	const schemaUsers = await this.request(
+		urls.lexicon(this._project, this._workspace_id, 'users'),
+		{},
+		'GET',
+	);
 
-	const schemaEvents = await fetch({
-		method: 'GET',
-		url: urls.lexicon(project, workspace, 'events'),
-		headers
-	});
-
-	const schemaProps = await fetch({
-		method: 'GET',
-		url: urls.lexicon(project, workspace, 'props'),
-		headers
-	});
-
-	const schemaUsers = await fetch({
-		method: 'GET',
-		url: urls.lexicon(project, workspace, 'users'),
-		headers
-	});
 
 	// const schemaGroups = await fetch({
 	// 	method: 'GET',
-	// 	url: urls.lexicon(project, workspace, 'groups'),
+	// 	url: urls.lexicon(this._project, this._workspace_id, 'groups'),
 	// 	headers
 	// });
 
@@ -500,18 +498,21 @@ async function getSchemaUnofficial(creds) {
 		// groups: schemaGroups.results
 	};
 
+	this._assets.schema = schema;
 	return schema;
-
-
 }
-async function postSchemaUnofficial(creds, schema) {
-	let { auth, project, workspace, region } = creds;
-
+async function createSchema(schema) {
+	//todo
 }
+async function deleteSchema() {
+	//todo
+}
+
+
 
 
 // ! UTILS
-async function batchDashboards(dashIds, workspace, region, auth, limit = 10) {
+async function batchDash(dashIds, workspace, region, auth, limit = 10) {
 	const batches = [];
 	for (let i = 0; i < dashIds.length; i += limit) {
 		batches.push(dashIds.slice(i, i + limit));
@@ -532,7 +533,8 @@ async function batchDashboards(dashIds, workspace, region, auth, limit = 10) {
 	}
 	return results;
 }
-async function makeProject(orgId, oauthToken = OAUTH_TOKEN) {
+
+async function createProject(orgId, oauthToken = OAUTH_TOKEN) {
 	const excludedOrgs = [
 		1, // Mixpanel
 		328203, // Mixpanel Demo

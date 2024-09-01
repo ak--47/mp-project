@@ -7,6 +7,7 @@ const retentionTemplate = require('../templates/models/retention-temp.json');
 const customEventTemplate = require('../templates/models/custom-event-temp.json');
 const customPropTemplate = require('../templates/models/custom-prop-temp.json');
 const cohortTemplate = require('../templates/models/cohort-temp.json');
+const sortingTemplate = require('../templates/models/sorting-temp.json');
 
 
 
@@ -60,7 +61,7 @@ module.exports.setTheme = function (colors, name, project_id) {
 module.exports.newReport = function (name, desc, workspace, dash, reportPayload = {}, type = "insights", region = "US") {
 	const { days = 30, shape = "line", breakdowns = [], blocks = [{ ev: "$all_events", maths: "total" }] } = reportPayload;
 	let template;
-	let url = URLs.createReport(workspace, workspace, dash, region);
+	let url = URLs.createReport(workspace, dash, region);
 	switch (type) {
 		case "insights":
 			template = insightsTemplate;
@@ -223,6 +224,8 @@ function cleanPayload(payload) {
 			cleanPayload(payload[key]);
 		}
 	}
+	// add sort layout
+	// payload.sorting = sortingTemplate.sorting;
 }
 
 

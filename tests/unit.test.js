@@ -1,40 +1,53 @@
+require('dotenv').config();
 const MixpanelProject = require('../index.js');
 const fetch = require('ak-fetch');
-const urls = require('../urls');
-jest.mock('ak-fetch');
-jest.mock('../urls');
+const urls = require('../tools/urls.js');
+jest.setTimeout(60000);
+// jest.mock('ak-fetch');
+// jest.mock('../tools/urls.js');
 
+const {
+	access_token = "",
+	service_acct = "",
+	service_secret = "",
+	id = "",
+} = process.env;
+
+if (!access_token || !service_acct || !service_secret || !id) {
+	throw new Error('Please set the following environment variables: access_token, service_acct, service_secret, id');
+}
 
 
 const options = {
-	service_acct: 'test_service_acct',
-	service_secret: 'test_service_secret',
-	id: 'test_id',
-	access_token: 'test_access_token'
+	service_acct,
+	service_secret,
+	id,
+	access_token
 };
 
 let project;
 
-beforeEach(() => {
+beforeEach(async () => {
 	project = new MixpanelProject(options);
+	await project.auth();
 });
 
 afterEach(() => {
 	jest.clearAllMocks();
 });
 
-test('init works', () => {
+test('auth works', () => {
 	expect(project._name).toBeDefined();
 	expect(project._writePath).toBeDefined();
 	expect(project._id).toBe(options.id);
 	expect(project._region).toBe('US');
-	expect(project._token).toBe(null);
-	expect(project._api_secret).toBe(null);
+	expect(project._token).toBeDefined();
+	expect(project._api_secret).toBeDefined();
 	expect(project._service_acct).toBe(options.service_acct);
 	expect(project._service_secret).toBe(options.service_secret);
 	expect(project._access_token).toBe(options.access_token);
-	expect(project._authenticated).toBe(false);
-	expect(project._metadata).toEqual({});
+	expect(project._authenticated).toBe(true);
+	expect(project._metadata).toBeDefined();
 });
 
 test('header resolution', () => {
@@ -59,75 +72,20 @@ test('header resolution', () => {
 
 	// Test for throwing error
 	project._auth_header_access_token = null;
-	expect(() => project.headers()).toThrow('Could not find undefined headers');
-});
-
-test('auth works (kinda)', async () => {
-	fetch.mockResolvedValueOnce({ results: { user: 'test_user' } })
-		.mockResolvedValueOnce({ results: { api_key: 'test_key', organizationId: 'org_id', organizationName: 'org_name', secret: 'test_secret', token: 'test_token' } })
-		.mockResolvedValueOnce({ results: { workspaces: [{ id: 'workspace_id', is_global: true }] } });
-
-	const metadata = await project.auth();
-	expect(metadata).toBeDefined();
-	expect(project._authenticated).toBe(true);
-	expect(metadata.user).toEqual({ user: 'test_user' });
-	expect(project._metadata.project).toBeDefined();
+	expect(() => project.headers()).toThrow('Could not find none headers');
 });
 
 test('get all', async () => {
-	fetch.mockResolvedValue({ results: [] });
-
 	const allAssets = await project.getAll();
 	expect(allAssets).toBeDefined();
-});
-
-test('get schema', async () => {
-	fetch.mockResolvedValue({});
-
-	const schema = await project.getSchema();
-	expect(schema).toBeDefined();
-});
-
-test('get dashboards', async () => {
-	fetch.mockResolvedValue({ results: [] });
-
-	const dashboards = await project.getDash();
-	expect(dashboards).toBeDefined();
-});
-
-test('get cohorts', async () => {
-	fetch.mockResolvedValue({ results: [] });
-
-	const cohorts = await project.getCohorts();
+	const {cohorts, customEvents, customProps, dashboards, formulas, schema, users} = allAssets;
 	expect(cohorts).toBeDefined();
-});
-
-test('get custom events', async () => {
-	fetch.mockResolvedValue({ custom_events: [] });
-
-	const customEvents = await project.getCustomEvents();
 	expect(customEvents).toBeDefined();
-});
-
-test('get custom prop', async () => {
-	fetch.mockResolvedValue({ results: [] });
-
-	const customProps = await project.getCustomProps();
 	expect(customProps).toBeDefined();
-});
-
-test('get formulas', async () => {
-	fetch.mockResolvedValue({ results: [] });
-
-	const formulas = await project.getFormulas();
+	expect(dashboards).toBeDefined();
 	expect(formulas).toBeDefined();
-});
-
-test('get users', async () => {
-	fetch.mockResolvedValue({ results: [] });
-
-	const users = await project.getUsers();
-	expect(users).toBeDefined();
+	expect(schema).toBeDefined();
+	expect(users).toBeDefined();	
 });
 
 test('clear project assets', () => {
@@ -145,6 +103,7 @@ test('clear project assets', () => {
 });
 
 test('error on bad auth', async () => {
+	project = new MixpanelProject(options);
 	project._access_token = null;
 	project._service_acct = null;
 	project._service_secret = null;
@@ -153,6 +112,7 @@ test('error on bad auth', async () => {
 });
 
 test('error when missing project', async () => {
+	project = new MixpanelProject(options);
 	project._id = null;
 
 	await expect(project.auth()).rejects.toThrow('Missing required project id');
